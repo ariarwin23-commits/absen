@@ -1,0 +1,8 @@
+{
+  "name": "Rekap absensi kecamatan",
+  "description": "Portal Rekapitulasi Absensi Sekolah se-Kecamatan terintegrasi Google Sheets \u0026 AppSheet dengan pratinjau 3-tab interaktif, mode spreadsheet layar penuh, manajemen admin terlindungi, dan analisis eksekutif AI Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
