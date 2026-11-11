@@ -1,0 +1,51 @@
+{
+  "entities": {
+    "School": {
+      "title": "School",
+      "description": "Data record for a school and its associated Google Sheets attendance URLs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 256 },
+        "npsn": { "type": "string", "maxLength": 32 },
+        "desa": { "type": "string", "maxLength": 128 },
+        "jenjang": { "type": "string", "enum": ["TK/PAUD", "SD", "SMP"] },
+        "status": { "type": "string", "enum": ["Negeri", "Swasta"] },
+        "totalSiswa": { "type": "number" },
+        "totalGuru": { "type": "number" },
+        "kepalaSekolah": { "type": "string", "maxLength": 256 },
+        "phone": { "type": "string", "maxLength": 64 },
+        "linkWaktu": { "type": "string", "maxLength": 1024 },
+        "linkHarian": { "type": "string", "maxLength": 1024 },
+        "linkBulanan": { "type": "string", "maxLength": 1024 },
+        "lastUpdated": { "type": "string", "maxLength": 64 },
+        "notes": { "type": "string", "maxLength": 1024 }
+      },
+      "required": ["id", "name", "npsn", "desa", "jenjang", "status", "linkWaktu", "linkHarian", "linkBulanan"]
+    },
+    "KecamatanConfig": {
+      "title": "KecamatanConfig",
+      "description": "Configuration and identity details of the district education service office",
+      "type": "object",
+      "properties": {
+        "namaKecamatan": { "type": "string", "maxLength": 128 },
+        "kabupaten": { "type": "string", "maxLength": 128 },
+        "provinsi": { "type": "string", "maxLength": 128 },
+        "korwilPendidikan": { "type": "string", "maxLength": 256 },
+        "alamatKantor": { "type": "string", "maxLength": 256 },
+        "teleponKantor": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["namaKecamatan", "kabupaten", "provinsi", "korwilPendidikan"]
+    }
+  },
+  "firestore": {
+    "/schools/{schoolId}": {
+      "schema": "School",
+      "description": "Official schools registered in the subdistrict portal with attendance sheets"
+    },
+    "/config/kecamatan": {
+      "schema": "KecamatanConfig",
+      "description": "Administrative profile of the subdistrict education coordinator"
+    }
+  }
+}

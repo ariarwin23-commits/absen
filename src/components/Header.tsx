@@ -11,8 +11,11 @@ import {
   LogOut,
   Building2,
   Calendar,
+  Cloud,
+  Layers,
 } from 'lucide-react';
 import { KecamatanConfig } from '../types';
+import { GoogleSignInButton } from './GoogleSignInButton';
 
 interface HeaderProps {
   currentTab: 'table' | 'fullscreen' | 'ai';
@@ -24,6 +27,11 @@ interface HeaderProps {
   onExportCSV: () => void;
   onEditKecamatan?: () => void;
   kecamatanConfig: KecamatanConfig;
+  currentUser?: any | null;
+  onGoogleSignIn?: () => void;
+  onGoogleSignOut?: () => void;
+  onOpenSheetsApiModal?: () => void;
+  isFirebaseConnected?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -36,6 +44,11 @@ export const Header: React.FC<HeaderProps> = ({
   onExportCSV,
   onEditKecamatan,
   kecamatanConfig,
+  currentUser,
+  onGoogleSignIn,
+  onGoogleSignOut,
+  onOpenSheetsApiModal,
+  isFirebaseConnected = true,
 }) => {
   const [currentTime, setCurrentTime] = useState<string>('');
 
@@ -118,6 +131,30 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action Bar & Admin Status */}
           <div className="flex items-center flex-wrap gap-2">
+            {/* Google Sheets API Explorer Button */}
+            {onOpenSheetsApiModal && (
+              <button
+                type="button"
+                onClick={onOpenSheetsApiModal}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                title="Buka Penjelajah Google Sheets REST API & Nilai Sel"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Google Sheets Live</span>
+              </button>
+            )}
+
+            {/* Google Sign-in Component */}
+            {onGoogleSignIn && onGoogleSignOut && (
+              <GoogleSignInButton
+                currentUser={currentUser}
+                isLoading={false}
+                onSignIn={onGoogleSignIn}
+                onSignOut={onGoogleSignOut}
+                hasSheetsToken={Boolean(currentUser)}
+              />
+            )}
+
             {/* Admin Controls */}
             {isAdmin ? (
               <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-lg p-1.5">

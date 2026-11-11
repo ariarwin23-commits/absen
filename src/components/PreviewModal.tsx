@@ -14,6 +14,7 @@ import {
   AlertCircle,
   CheckCircle,
   Printer,
+  Layers,
 } from 'lucide-react';
 
 interface PreviewModalProps {
@@ -23,6 +24,7 @@ interface PreviewModalProps {
   onClose: () => void;
   onOpenFullscreen: (school: School, tab: SheetTab) => void;
   onOpenPrint: (school: School, tab: SheetTab) => void;
+  onOpenSheetsApi?: (school: School, tab: SheetTab) => void;
 }
 
 export const PreviewModal: React.FC<PreviewModalProps> = ({
@@ -32,6 +34,7 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
   onClose,
   onOpenFullscreen,
   onOpenPrint,
+  onOpenSheetsApi,
 }) => {
   const [activeTab, setActiveTab] = useState<SheetTab>(initialTab);
   const [iframeKey, setIframeKey] = useState<number>(0);
@@ -205,6 +208,17 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                   <Printer className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Cetak / Ekspor PDF</span>
                 </button>
+                {onOpenSheetsApi && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenSheetsApi(school, activeTab)}
+                    className="p-1.5 px-2.5 text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    title="Buka Data Mentah & Nilai Sel via Google Sheets API"
+                  >
+                    <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Sheets API</span>
+                  </button>
+                )}
                 <a
                   href={rawUrl}
                   target="_blank"

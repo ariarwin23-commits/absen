@@ -13,6 +13,19 @@ import { SchoolFormModal } from './components/SchoolFormModal';
 import { DeleteConfirmModal } from './components/DeleteConfirmModal';
 import { SheetPrintModal } from './components/SheetPrintModal';
 import { KecamatanConfigModal } from './components/KecamatanConfigModal';
+import { GoogleSheetsApiModal } from './components/GoogleSheetsApiModal';
+import {
+  initAuth,
+  googleSignIn,
+  logoutFirebase,
+  testConnection,
+} from './lib/firebase';
+import {
+  seedInitialSchoolsIfEmpty,
+  saveSchoolToFirestore,
+  deleteSchoolFromFirestore,
+  saveKecamatanConfigToFirestore,
+} from './services/firestoreService';
 import {
   RotateCcw,
   ShieldCheck,
@@ -140,12 +153,92 @@ export default function App() {
     school: null,
   });
 
+  // Firebase Auth and Google Workspace token state
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [cachedToken, setCachedToken] = useState<string | null>(null);
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(true);
+
+  // Google Sheets API Explorer Modal state
+  const [sheetsApiState, setSheetsApiState] = useState<{
+    isOpen: boolean;
+    schoolId?: string;
+    tab?: SheetTab;
+  }>({
+    isOpen: false,
+    schoolId: schools[0]?.id || 'sch-01',
+    tab: 'waktu',
+  });
+
   // Toast / feedback message
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Initialize Firebase Auth listener
+  useEffect(() => {
+    const unsubscribe = initAuth(
+      (user, token) => {
+        setCurrentUser(user);
+        if (token) setCachedToken(token);
+      },
+      () => {
+        setCurrentUser(null);
+        setCachedToken(null);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  // Connect to Firestore & seed initial 3 schools
+  useEffect(() => {
+    testConnection().then(connected => {
+      setIsFirebaseConnected(connected);
+    });
+    seedInitialSchoolsIfEmpty().then(seededSchools => {
+      if (seededSchools && seededSchools.length > 0) {
+        setSchools(seededSchools);
+      }
+    }).catch(err => {
+      console.warn('Initial seed error:', err);
+    });
+  }, []);
+
+  // Google Sign-In with Google Workspace Scopes
+  const handleGoogleSignIn = async () => {
+    try {
+      const res = await googleSignIn();
+      if (res) {
+        setCurrentUser(res.user);
+        setCachedToken(res.accessToken);
+        showToast(`Berhasil login Google: ${res.user.displayName || res.user.email}`);
+      }
+    } catch (err: any) {
+      if (err.code !== 'auth/popup-closed-by-user') {
+        showToast('Login Google dibatalkan atau gagal.');
+      }
+    }
+  };
+
+  const handleGoogleSignOut = async () => {
+    try {
+      await logoutFirebase();
+      setCurrentUser(null);
+      setCachedToken(null);
+      showToast('Telah keluar dari akun Google.');
+    } catch (err: any) {
+      console.warn('Logout error:', err);
+    }
+  };
+
+  const handleOpenSheetsApiModal = (school?: School, tab: SheetTab = 'waktu') => {
+    setSheetsApiState({
+      isOpen: true,
+      schoolId: school?.id || schools[0]?.id || 'sch-01',
+      tab,
+    });
   };
 
   // Admin Login & Logout
@@ -170,6 +263,7 @@ export default function App() {
     } catch (e) {
       console.warn('Failed to persist config:', e);
     }
+    saveKecamatanConfigToFirestore(newConfig).catch(e => console.warn('Firestore config error:', e));
     showToast('Identitas wilayah kecamatan berhasil diperbarui.');
   };
 
@@ -207,17 +301,14 @@ export default function App() {
   const handleSaveSchool = (schoolData: Partial<School>) => {
     if (schoolFormState.initialData) {
       // Edit mode
-      setSchools(prev =>
-        prev.map(s =>
-          s.id === schoolFormState.initialData?.id
-            ? {
-                ...s,
-                ...schoolData,
-                lastUpdated: new Date().toISOString().split('T')[0],
-              }
-            : s
-        )
-      );
+      const updated = {
+        ...schoolFormState.initialData,
+        ...schoolData,
+        lastUpdated: new Date().toISOString().split('T')[0],
+      } as School;
+
+      setSchools(prev => prev.map(s => (s.id === updated.id ? updated : s)));
+      saveSchoolToFirestore(updated).catch(e => console.warn('Firestore update error:', e));
       showToast(`Data sekolah "${schoolData.name}" berhasil diperbarui.`);
     } else {
       // Create mode
@@ -237,6 +328,7 @@ export default function App() {
         lastUpdated: new Date().toISOString().split('T')[0],
       };
       setSchools(prev => [newSchool, ...prev]);
+      saveSchoolToFirestore(newSchool).catch(e => console.warn('Firestore create error:', e));
       showToast(`Sekolah baru "${newSchool.name}" berhasil ditambahkan.`);
     }
     setSchoolFormState({ isOpen: false, initialData: null });
@@ -246,6 +338,7 @@ export default function App() {
   const handleConfirmDelete = (schoolId: string) => {
     const target = schools.find(s => s.id === schoolId);
     setSchools(prev => prev.filter(s => s.id !== schoolId));
+    deleteSchoolFromFirestore(schoolId).catch(e => console.warn('Firestore delete error:', e));
     setDeleteConfirmState({ isOpen: false, school: null });
     showToast(`Sekolah "${target?.name || ''}" telah dihapus dari daftar kecamatan.`);
   };
@@ -290,6 +383,11 @@ export default function App() {
         onExportCSV={handleExportCSV}
         onEditKecamatan={() => setIsConfigModalOpen(true)}
         kecamatanConfig={kecamatanConfig}
+        currentUser={currentUser}
+        onGoogleSignIn={handleGoogleSignIn}
+        onGoogleSignOut={handleGoogleSignOut}
+        onOpenSheetsApiModal={() => handleOpenSheetsApiModal(previewState.school || schools[0])}
+        isFirebaseConnected={isFirebaseConnected}
       />
 
       {/* Main Applet Body */}
@@ -380,6 +478,7 @@ export default function App() {
         onClose={handleClosePreview}
         onOpenFullscreen={handleTransitionToFullscreen}
         onOpenPrint={handleOpenPrint}
+        onOpenSheetsApi={(school, tab) => handleOpenSheetsApiModal(school, tab)}
       />
 
       {/* 2. Cetak & Ekspor PDF Spreadsheet (Pas Ukuran Kertas A4/Folio/Landscape) */}
@@ -419,6 +518,21 @@ export default function App() {
         school={deleteConfirmState.school}
         onClose={() => setDeleteConfirmState({ isOpen: false, school: null })}
         onConfirm={handleConfirmDelete}
+      />
+
+      {/* 7. Google Sheets REST API Live Explorer Modal */}
+      <GoogleSheetsApiModal
+        isOpen={sheetsApiState.isOpen}
+        onClose={() => setSheetsApiState(prev => ({ ...prev, isOpen: false }))}
+        schools={schools}
+        initialSchoolId={sheetsApiState.schoolId}
+        initialTab={sheetsApiState.tab}
+        currentUser={currentUser}
+        cachedToken={cachedToken}
+        onAuthSuccess={(user, token) => {
+          setCurrentUser(user);
+          if (token) setCachedToken(token);
+        }}
       />
     </div>
   );

@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email == 'ariarwin23@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
+    function isValidSchool(data) {
+      return data.keys().hasAll(['id', 'name', 'npsn', 'desa', 'jenjang', 'status', 'linkWaktu', 'linkHarian', 'linkBulanan']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 256 &&
+        data.npsn is string && data.npsn.size() > 0 && data.npsn.size() <= 32 &&
+        data.desa is string && data.desa.size() <= 128 &&
+        (data.jenjang == 'SD' || data.jenjang == 'SMP' || data.jenjang == 'TK/PAUD') &&
+        (data.status == 'Negeri' || data.status == 'Swasta') &&
+        data.linkWaktu is string && data.linkWaktu.size() <= 1024 &&
+        data.linkHarian is string && data.linkHarian.size() <= 1024 &&
+        data.linkBulanan is string && data.linkBulanan.size() <= 1024;
+    }
+
+    function isValidKecamatanConfig(data) {
+      return data.keys().hasAll(['namaKecamatan', 'kabupaten', 'provinsi', 'korwilPendidikan']) &&
+        data.namaKecamatan is string && data.namaKecamatan.size() <= 128 &&
+        data.kabupaten is string && data.kabupaten.size() <= 128 &&
+        data.provinsi is string && data.provinsi.size() <= 128 &&
+        data.korwilPendidikan is string && data.korwilPendidikan.size() <= 256;
+    }
+
+    // Public attendance data read, verified admin write
+    match /schools/{schoolId} {
+      allow read: if true;
+      allow create: if isVerifiedUser() && isValidId(schoolId) && isValidSchool(incoming());
+      allow update: if isVerifiedUser() && isValidId(schoolId) && isValidSchool(incoming());
+      allow delete: if (isSuperAdmin() || isVerifiedUser()) && isValidId(schoolId);
+    }
+
+    match /config/{configId} {
+      allow read: if true;
+      allow create, update: if isVerifiedUser() && isValidId(configId) && isValidKecamatanConfig(incoming());
+      allow delete: if isSuperAdmin() && isValidId(configId);
+    }
+
+    // Connection testing endpoint
+    match /test/{docId} {
+      allow read: if true;
+      allow write: if isVerifiedUser();
+    }
+  }
+}
